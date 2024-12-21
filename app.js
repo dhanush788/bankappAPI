@@ -2,9 +2,12 @@ const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 const express = require('express');
 const app = express();
+const cors = require('cors');
 
 // Middleware to parse JSON requests
 app.use(express.json());
+app.use(cors());
+
 
 // Supabase connection
 const supabaseUrl = process.env.SUPABASE_URL;
