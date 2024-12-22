@@ -68,6 +68,3 @@ jobs:
             # Restart the Apache service if you're using it as a reverse proxy (optional)
             sudo systemctl restart httpd
 
-            # Allow traffic on the application port (if needed)
-            sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
-            sudo firewall-cmd --reload
