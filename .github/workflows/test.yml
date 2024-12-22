@@ -66,5 +66,10 @@ jobs:
             sudo systemctl restart httpd
 
             # Step 4.8: Configure the firewall to allow traffic on port 3000 (if that's your app's port)
-            sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
-            sudo firewall-cmd --reload
+            # On Amazon Linux 2, we may not have firewalld by default, so we should use iptables instead.
+            sudo iptables -I INPUT -p tcp --dport 3000 -j ACCEPT
+
+            # Save iptables rules and restart iptables service
+            sudo service iptables save
+            sudo service iptables restart
+
