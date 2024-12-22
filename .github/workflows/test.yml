@@ -44,7 +44,7 @@ jobs:
           script: |
             # Step 4.1: Update the instance and install required packages
             sudo yum -y update
-            sudo yum install -y httpd nodejs npm  # Installing Apache, Node.js, and npm
+            sudo yum install -y httpd nodejs npm firewalld  # Installing Apache, Node.js, npm, and firewalld
 
             # Step 4.2: Install PM2 for process management
             sudo npm install -g pm2
@@ -65,11 +65,8 @@ jobs:
             # Step 4.7: Optionally, restart Apache if you're using it as a reverse proxy
             sudo systemctl restart httpd
 
-            # Step 4.8: Configure the firewall to allow traffic on port 3000 (if that's your app's port)
-            # On Amazon Linux 2, we may not have firewalld by default, so we should use iptables instead.
-            sudo iptables -I INPUT -p tcp --dport 3000 -j ACCEPT
-
-            # Save iptables rules and restart iptables service
-            sudo service iptables save
-            sudo service iptables restart
-
+            # Step 4.8: Enable and start firewalld, then open port 3000
+            sudo systemctl start firewalld
+            sudo systemctl enable firewalld
+            sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
+            sudo firewall-cmd --reload
