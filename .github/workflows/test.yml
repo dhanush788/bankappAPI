@@ -1,6 +1,6 @@
 name: Push-to-EC2 instance
 
-# Trigger deployment only on push to main branch 
+# Trigger deployment only on push to the main branch 
 on:
   push:
     branches:
@@ -12,9 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the code
       - name: Checkout the code
         uses: actions/checkout@v2  # Use v2 for better support
 
+      # Step 2: Deploy to my EC2 instance
       - name: Deploy to my EC2 instance
         uses: easingthemes/ssh-deploy@v2.1.5
         env:
@@ -22,8 +24,15 @@ jobs:
           SOURCE: "./"
           REMOTE_HOST: ${{ secrets.HOST_DNS }}
           REMOTE_USER: ${{ secrets.USERNAME }}
-          TARGET: ${{ secrets.TARGET_DIR }}
+          TARGET: /home/ec2-user/my-app  # Specify the target directory for your app
 
+      # Step 3: Check if deployment was successful (optional)
+      - name: Verify deployment directory
+        run: |
+          echo "Checking the directory where the app was deployed"
+          ssh -i ${{ secrets.EC2_SSH_KEY }} ${{ secrets.USERNAME }}@${{ secrets.HOST_DNS }} "ls -la /home/ec2-user/my-app" 
+
+      # Step 4: Execute remote SSH commands to install dependencies, build, and start the app
       - name: Executing remote ssh commands using ssh key
         uses: appleboy/ssh-action@master
         with:
@@ -38,8 +47,8 @@ jobs:
             # Install PM2 for process management
             sudo npm install -g pm2
 
-            # Navigate to application directory
-            cd /home/ec2-user
+            # Navigate to the application directory
+            cd /home/ec2-user/my-app  # Ensure this matches the TARGET directory
 
             # Install Node.js dependencies
             npm install
@@ -54,10 +63,7 @@ jobs:
             pm2 startup
             pm2 save
 
-            # Ensure the Node.js app is running on the desired port (default: 3000)
-            # You can use firewall rules if needed to allow access to this port
-
-            # Optionally restart the httpd service if you're using Apache as a reverse proxy
+            # Restart the Apache service if you're using it as a reverse proxy (optional)
             sudo systemctl restart httpd
 
             # Allow traffic on the application port (if needed)
