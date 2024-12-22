@@ -14,57 +14,57 @@ jobs:
     steps:
       # Step 1: Checkout the code
       - name: Checkout the code
-        uses: actions/checkout@v2  # Use v2 for better support
+        uses: actions/checkout@v2
 
-      # Step 2: Deploy to my EC2 instance
-      - name: Deploy to my EC2 instance
+      # Step 2: Deploy to EC2 instance
+      - name: Deploy to EC2 instance
         uses: easingthemes/ssh-deploy@v2.1.5
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-          SOURCE: "./"
+          SOURCE: "./"  # Source is the current directory where your code is
           REMOTE_HOST: ${{ secrets.HOST_DNS }}
           REMOTE_USER: ${{ secrets.USERNAME }}
-          TARGET: /home/ec2-user/my-app  # Specify the target directory for your app
+          TARGET: /home/ec2-user/my-backend-app  # Directory to which code will be deployed
 
-      # Step 3: Verify deployment directory (use ssh-agent)
+      # Step 3: Verify deployment directory
       - name: Verify deployment directory
         run: |
           echo "Checking the directory where the app was deployed"
           echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
           chmod 600 private_key.pem
-          ssh-agent bash -c 'ssh-add private_key.pem; ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST_DNS }} "ls -la /home/ec2-user/my-app"'
+          ssh-agent bash -c 'ssh-add private_key.pem; ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST_DNS }} "ls -la /home/ec2-user/my-backend-app"'
 
-      # Step 4: Execute remote SSH commands to install dependencies, build, and start the app
-      - name: Executing remote ssh commands using ssh key
+      # Step 4: Install dependencies and set up the backend app
+      - name: Execute remote SSH commands using SSH key
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST_DNS }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Update and install dependencies
+            # Step 4.1: Update the instance and install required packages
             sudo yum -y update
-            sudo yum install -y httpd nodejs npm
+            sudo yum install -y httpd nodejs npm  # Installing Apache, Node.js, and npm
 
-            # Install PM2 for process management
+            # Step 4.2: Install PM2 for process management
             sudo npm install -g pm2
 
-            # Navigate to the application directory
-            cd /home/ec2-user/my-app  # Ensure this matches the TARGET directory
+            # Step 4.3: Navigate to the app directory and install Node.js dependencies
+            cd /home/ec2-user/my-backend-app  # The directory where your app is deployed
 
-            # Install Node.js dependencies
+            # Step 4.4: Install Node.js dependencies
             npm install
 
-            # Build the Node.js application (adjust this if you don't need a build step)
-            sudo npm run build
+            # Step 4.5: Start the Node.js application using PM2
+            pm2 start app.js --name "backend-app"  # Replace `app.js` with your app's entry file
 
-            # Start the Node.js application using PM2 (adjust app.js to your entry file)
-            pm2 start app.js --name "express-app"
-
-            # Set PM2 to auto-start on reboot
+            # Step 4.6: Make sure PM2 auto-starts the app on reboot
             pm2 startup
             pm2 save
 
-            # Restart the Apache service if you're using it as a reverse proxy (optional)
+            # Step 4.7: Optionally, restart Apache if you're using it as a reverse proxy
             sudo systemctl restart httpd
 
+            # Step 4.8: Configure the firewall to allow traffic on port 3000 (if that's your app's port)
+            sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
+            sudo firewall-cmd --reload
