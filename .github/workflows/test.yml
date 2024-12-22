@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout the code
-        uses: actions/checkout@v2  # Update to v2 for better support
+        uses: actions/checkout@v2  # Use v2 for better support
 
       - name: Deploy to my EC2 instance
         uses: easingthemes/ssh-deploy@v2.1.5
@@ -35,32 +35,31 @@ jobs:
             sudo yum -y update
             sudo yum install -y httpd nodejs npm
 
-            # Start and enable Apache server (if needed for static assets)
-            sudo systemctl start httpd
-            sudo systemctl enable httpd
+            # Install PM2 for process management
+            sudo npm install -g pm2
 
             # Navigate to application directory
             cd /home/ec2-user
 
-            # Install node dependencies
+            # Install Node.js dependencies
             npm install
 
-            # Build the Node.js application (adjust this if not needed)
+            # Build the Node.js application (adjust this if you don't need a build step)
             sudo npm run build
 
-            # If there are build files and you want to serve them through Apache
-            cd build
-            sudo mv * /var/www/html
+            # Start the Node.js application using PM2 (adjust app.js to your entry file)
+            pm2 start app.js --name "express-app"
 
-            # If your app requires Node.js to run
-            # Start the Node.js application (replace app.js with your actual entry file)
-            nohup node app.js &
+            # Set PM2 to auto-start on reboot
+            pm2 startup
+            pm2 save
 
-            # Optionally, you can use pm2 for better process management
-            # sudo npm install -g pm2
-            # pm2 start app.js
-            # pm2 startup
-            # pm2 save
+            # Ensure the Node.js app is running on the desired port (default: 3000)
+            # You can use firewall rules if needed to allow access to this port
 
-            # Restart httpd service to ensure everything is properly served
+            # Optionally restart the httpd service if you're using Apache as a reverse proxy
             sudo systemctl restart httpd
+
+            # Allow traffic on the application port (if needed)
+            sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
+            sudo firewall-cmd --reload
