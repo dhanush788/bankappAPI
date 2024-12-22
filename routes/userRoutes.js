@@ -36,14 +36,14 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     const supabase = req.supabase;
 
-    const { uid, account_number, interest_rate, tenure, emi_due } = req.body;
-    if (!uid || !account_number || !interest_rate || !tenure || !emi_due) {
+    const { uid, account_number, interest_rate, tenure, emi_due , loan_amount , months_to_repay } = req.body;
+    if (!uid || !account_number || !interest_rate || !tenure || !emi_due || !loan_amount || !months_to_repay) {
         return res.status(400).json({ error: 'Please provide all fields' });
     }
     const { data, error } = await supabase
         .from('customers')
         .insert([
-            { uid, account_number, interest_rate, tenure, emi_due }
+            { uid, account_number, interest_rate, tenure, emi_due , loan_amount , months_to_repay }
         ]);
 
     if (error) {
