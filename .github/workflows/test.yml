@@ -1,36 +1,72 @@
-name: CI
+name: Push-to-EC2 instance
 
+# Trigger deployment only on push to the main branch
 on:
   push:
-    branches: 
+    branches:
       - main
 
-  workflow_dispatch:
-
 jobs:
-  build:
-
+  deploy:
+    name: Push to EC2
     runs-on: ubuntu-latest
 
-    if: github.ref == 'refs/heads/main'
-
-    strategy:
-      matrix:
-        node-version: [20.x]
-
     steps:
-      - uses: actions/checkout@v2
+      # Step 1: Checkout the code
+      - name: Checkout the code
+        uses: actions/checkout@v2
 
-      - run: npm ci
-      - run: npm run build
-      - run: npm run test
+      # Step 2: Deploy to EC2 instance
+      - name: Deploy to EC2 instance
+        uses: easingthemes/ssh-deploy@v2.1.5
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SOURCE: "./"  # Source is the current directory where your code is
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          TARGET: /home/ec2-user/my-backend-app  # Directory to which code will be deployed
 
-      - name: rsync deployments
-        uses: burnett01/rsync-deployments@5.1
+      # Step 3: Verify deployment directory
+      - name: Verify deployment directory
+        run: |
+          echo "Checking the directory where the app was deployed"
+          echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh-agent bash -c 'ssh-add private_key.pem; ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST_DNS }} "ls -la /home/ec2-user/my-backend-app"'
+
+      # Step 4: Install dependencies and set up the backend app
+      - name: Execute remote SSH commands using SSH key
+        uses: appleboy/ssh-action@master
         with:
-          switches: -avzr --delete
-          path: ./*
-          remote_path: /var/www/my-app/
-          remote_host: ${{ secrets.HOST_DNS }}
-          remote_user: ubuntu
-          remote_key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Step 4.1: Update the instance and install required packages
+            sudo yum -y update
+            sudo yum install -y httpd nodejs npm firewalld  # Installing Apache, Node.js, npm, and firewalld
+
+            # Step 4.2: Install PM2 for process management
+            sudo npm install -g pm2
+
+            # Step 4.3: Navigate to the app directory and install Node.js dependencies
+            cd /home/ec2-user/my-backend-app  # The directory where your app is deployed
+
+            # Step 4.4: Install Node.js dependencies
+            npm install
+
+            # Step 4.5: Start the Node.js application using PM2
+            pm2 start app.js --name "backend-app"  # Replace `app.js` with your app's entry file
+
+            # Step 4.6: Make sure PM2 auto-starts the app on reboot
+            pm2 startup
+            pm2 save
+
+            # Step 4.7: Optionally, restart Apache if you're using it as a reverse proxy
+            sudo systemctl restart httpd
+
+            # Step 4.8: Enable and start firewalld, then open port 3000
+            sudo systemctl start firewalld
+            sudo systemctl enable firewalld
+            sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
+            sudo firewall-cmd --reload
