@@ -34,7 +34,19 @@ jobs:
           chmod 600 private_key.pem
           ssh-agent bash -c 'ssh-add private_key.pem; ssh -o StrictHostKeyChecking=no ${{ secrets.USERNAME }}@${{ secrets.HOST_DNS }} "ls -la /home/ec2-user/my-backend-app"'
 
-      # Step 4: Install dependencies and set up the backend app
+      # Step 4: Create .env file on EC2 instance
+      - name: Create .env file on EC2 instance
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Creating .env file"
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > /home/ec2-user/my-backend-app/.env
+            echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> /home/ec2-user/my-backend-app/.env
+
+      # Step 5: Execute remote SSH commands using SSH key
       - name: Execute remote SSH commands using SSH key
         uses: appleboy/ssh-action@master
         with:
@@ -42,30 +54,30 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Step 4.1: Update the instance and install required packages
+            # Step 5.1: Update the instance and install required packages
             sudo yum -y update
             sudo yum install -y httpd nodejs npm firewalld  # Installing Apache, Node.js, npm, and firewalld
 
-            # Step 4.2: Install PM2 for process management
+            # Step 5.2: Install PM2 for process management
             sudo npm install -g pm2
 
-            # Step 4.3: Navigate to the app directory and install Node.js dependencies
+            # Step 5.3: Navigate to the app directory and install Node.js dependencies
             cd /home/ec2-user/my-backend-app  # The directory where your app is deployed
 
-            # Step 4.4: Install Node.js dependencies
+            # Step 5.4: Install Node.js dependencies
             npm install
 
-            # Step 4.5: Start the Node.js application using PM2
+            # Step 5.5: Start the Node.js application using PM2
             pm2 start app.js --name "backend-app"  # Replace `app.js` with your app's entry file
 
-            # Step 4.6: Make sure PM2 auto-starts the app on reboot
+            # Step 5.6: Make sure PM2 auto-starts the app on reboot
             pm2 startup
             pm2 save
 
-            # Step 4.7: Optionally, restart Apache if you're using it as a reverse proxy
+            # Step 5.7: Optionally, restart Apache if you're using it as a reverse proxy
             sudo systemctl restart httpd
 
-            # Step 4.8: Enable and start firewalld, then open port 3000
+            # Step 5.8: Enable and start firewalld, then open port 3000
             sudo systemctl start firewalld
             sudo systemctl enable firewalld
             sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
