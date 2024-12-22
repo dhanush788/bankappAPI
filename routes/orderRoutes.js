@@ -12,23 +12,23 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     const supabase = req.supabase;
-    const { customer_id, payment_amount, status } = req.body;
+    const { customer_id, payment_amount, status, payment_method, tax_amount, grand_total } = req.body;
     const payment_date = new Date();
-    if (!customer_id || !payment_amount || !status) {
+    if (!customer_id || !payment_amount || !status || !payment_method || !tax_amount || !grand_total) {
         return res.status(400).json({ error: 'Please provide all fields' });
     }
     const { data, error } = await supabase
         .from('payments')
         .insert([
-            { customer_id, payment_amount, payment_date, status }
+            { customer_id, payment_amount, payment_date, status, payment_method, tax_amount, grand_total }
         ])
         .select();
 
-        if (error) {
-            return res.status(500).json({ error: error.message });
-        }
-        let payment_id = data[0].id;
-        res.status(200).json({ message: "Payment submitted successfully" , payment_id: payment_id});
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+    let payment_id = data[0].id;
+    res.status(200).json({ message: "Payment submitted successfully", payment_id: payment_id });
 });
 
 router.get('/:id', async (req, res) => {
