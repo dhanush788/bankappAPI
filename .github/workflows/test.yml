@@ -71,7 +71,7 @@ jobs:
             pm2 start app.js --name "backend-app"  # Replace `app.js` with your app's entry file
 
             # Step 5.6: Make sure PM2 auto-starts the app on reboot
-            pm2 startup
+            pm2 startup -f
             pm2 save
 
             # Step 5.7: Optionally, restart Apache if you're using it as a reverse proxy
